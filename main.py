@@ -31,16 +31,27 @@ class Database():
         return listID
 
     def add_new_player(self, telegramID):
-        self.cursor.execute('insert into Players(telegramID, state) values(%s, %s)', (telegramID, 'not_registered'))
+        self.cursor.execute('insert into Players(telegramID, state) values(%s, %s)',
+                            (telegramID, 'not_registered'))
+        self.connection.commit()
+        self.query(f'select playerID from Players where telegramID = {telegramID}')
+        id = self.cursor.fetchone()['playerID']
+        nic = "Player"+str(id)
+        self.cursor.execute(f'update Players set nic = concat("Player", playerID) where telegramID = {telegramID}')
         self.connection.commit()
 
+
     def get_All_players_All_info(self):
-        self.cursor.execute('select playerID, telegramID, schoolNumber, mosregID, nic, placeId, forse, speed, state from Players')
+        self.query('select playerID, telegramID, schoolNumber, mosregID, nic, placeId, forse, speed, state from Players')
         return self.cursor.fetchall()
 
-    def get_state_from_id(self, player_id):
-        self.query(f'select state from Players where playerID = {player_id}')
-        return self.cursor.fetchall()
+    def get_state_from_id(self, playerID):
+        self.query(f'select state from Players where playerID = {playerID}')
+        return self.cursor.fetchall()[0]['state']
+
+    def get_playerID_from_telegramID(self, telegramID):
+        self.query(f'select playerID from Players where telegramID = {telegramID}')
+        return self.cursor.fetchall()[0]['playerID']
 
     def close_database(self):
         self.cursor.close()
@@ -51,28 +62,20 @@ class Player():
         self.telegramID = telegramID
         db = Database()
         data = db.get_telegramID_tuple()
-        print(data)
         if not telegramID in data:
             print('Неопознанный игрок')
             db.add_new_player(telegramID)
             data = db.get_All_players_All_info()
             print('Добавили игрока', data)
         else:
-            print('Id телеграма есть в базе')
-        print('Список ID telegram in DB:', data)
-        self.playerID = 
+            print('Id телеграма есть в базе. Вот его данные: ', db.get_All_players_All_info())
+        self.playerID = db.get_playerID_from_telegramID(self.telegramID)
         db.close_database()
 
     def get_state(self):
         db = Database()
-        print(db)
+        return db.get_state_from_id(self.playerID)
 
-
-
-
-
-    def add_user(self):
-        pass
     def change_nic(self):
         pass
 
@@ -114,6 +117,8 @@ dp = aiogram.Dispatcher(bot)
 async def send_welcome(message: aiogram.types.Message):
     print(aiogram.types.User.get_current())
     player = Player(aiogram.types.User.get_current()['id'])
+    print('Создан объект: ', player.playerID, player.telegramID, player.get_state())
+
     text = 'Привет! Это игра "Школьные войны"! В этой игре ты моешь отстоять честь своей школы, захватывать дома и здания города Жуковского, объединяться с игроками из твоей школы и совместно месить конкурентоа из других школ.\n' \
            ''
     keyboard=aiogram.types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
